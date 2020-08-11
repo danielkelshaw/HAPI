@@ -1,10 +1,11 @@
 import json
-from typing import Tuple, NoReturn, Optional
+from typing import List, Tuple, NoReturn, Optional, Sequence, Union
 
 import requests
 from requests.models import Response
 
 from .user import User
+from .utils.inputs import to_list
 
 
 class Controller:
@@ -43,65 +44,80 @@ class Controller:
 
         return req.json()
 
-    def switch(self, light_id: int) -> None:
+    @to_list
+    def switch(self, light_id: Union[int, List[int]]) -> None:
 
-        """Switches the status of a given light.
+        """Switches the status of given light/s.
+
+        NB: If int is passed then it is converted to an Iterable.
 
         Parameters
         ----------
-        light_id : int
-            ID of single Hue light.
+        light_id : Union[int, Sequence[int]]
+            ID of Hue light/s to switch.
         """
 
-        curr_state = self.get_lights(light_id)['state']['on']
-        switch_state = not curr_state
+        for light in light_id:
+            curr_state = self.get_lights(light)['state']['on']
+            switch_dict = {'on': not curr_state}
+            req = self._set_state(light_id=light, data=switch_dict)
 
-        req = requests.put(
-            url=self.user.url + f'/lights/{light_id}/state',
-            data=json.dumps({'on': switch_state})
-        )
+    @to_list
+    def pulse(self, light_id: Union[int, List[int]]) -> None:
 
-    def pulse(self, light_id: int) -> None:
+        """Pulses the given light/s.
 
-        """Pulses a given light.
+        NB: If an int is passed then it is converted to an iterable.
 
         Parameters
         ----------
         light_id : int
-            ID of a single Hue light.
+            ID of Hue light/s to pulse.
         """
 
         pulse_data = {'on': True, 'transitiontime': 40, 'alert': 'select'}
-        req = self._set_state(light_id=light_id, data=pulse_data)
 
-    def set_ct(self, light_id: int, ct: int) -> None:
+        for light in light_id:
+            req = self._set_state(light_id=light, data=pulse_data)
 
-        """Set colour temperature of a given light.
+    @to_list
+    def set_ct(self, light_id: Union[int, List[int]], ct: Union[int, List[int]]) -> None:
+
+        """Set colour temperature of given light/s.
+
+        NB: If an int is passed then it is converted to an iterable.
 
         Parameters
         ----------
-        light_id : int
-            ID of a single Hue light.
+        light_id : Union[int, Sequence[int]]
+            ID of Hue light/s to switch.
         ct : int
-            Colour temperature to set the light to.
+            Colour temperature to set Hue light/s to.
         """
 
-        req = self._set_state(light_id=light_id, data={'ct': ct})
+        for idx, light in enumerate(light_id):
+            req = self._set_state(light_id=light, data={'ct': ct[idx]})
 
-    def set_colour(self, light_id: int, hsb: Tuple[int, int, int]) -> None:
+    @to_list
+    def set_colour(self,
+                   light_id: Union[int, List[int]],
+                   hsb: Union[Tuple[int, int, int], List[Tuple[int, int, int]]]) -> None:
 
-        """Sets the colour of a given light.
+        """Sets the colour of given light/s.
+
+        NB: If an int is passed then it is converted to an iterable.
 
         Parameters
         ----------
         light_id : int
-            ID of a single Hue light.
-        hsb : Tuple[int, int, int]
-            Tuple giving the required (Hue, Saturation, Brightness).
+            ID of Hue light/s to set colour.
+        hsb : Union[Tuple[int, int, int], List[Tuple[int, int, int]]]
+            Tuple/s giving the required (Hue, Saturation, Brightness).
         """
 
-        hsb_data = {k: v for k, v in zip('hsb', hsb)}
-        self._set_state(light_id=light_id, data=hsb_data)
+        for idx, light in enumerate(light_id):
+            hsb_data = {k: v for k, v in zip('hsb', hsb[idx])}
+            self._set_state(light_id=light, data=hsb_data)
 
     def all_off(self) -> NoReturn:
         raise NotImplementedError('Controller::all_off()')
